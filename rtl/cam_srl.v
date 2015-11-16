@@ -80,23 +80,13 @@ reg [SLICE_COUNT*SLICE_WIDTH-1:0] write_data_padded_reg = {SLICE_COUNT*SLICE_WID
 
 reg write_busy_reg = 1'b1;
 
-reg [RAM_DEPTH-1:0] match_many_reg = {RAM_DEPTH{1'b0}};
-reg [RAM_DEPTH-1:0] match_single_reg = {RAM_DEPTH{1'b0}};
-reg [ADDR_WIDTH-1:0] match_addr_reg = {ADDR_WIDTH{1'b0}};
-reg match_reg = 1'b0;
-
 assign write_busy = write_busy_reg;
-
-assign match_many = match_many_reg;
-assign match_single = match_single_reg;
-assign match_addr = match_addr_reg;
-assign match = match_reg;
 
 reg [RAM_DEPTH-1:0] match_raw_out[SLICE_COUNT-1:0];
 reg [RAM_DEPTH-1:0] match_many_raw;
-wire [RAM_DEPTH-1:0] match_single_raw;
-wire [ADDR_WIDTH-1:0] match_addr_raw;
-wire match_raw;
+reg [RAM_DEPTH-1:0] match_many_reg = {RAM_DEPTH{1'b0}};
+
+assign match_many = match_many_reg;
 
 integer k;
 
@@ -112,10 +102,10 @@ priority_encoder #(
     .LSB_PRIORITY("HIGH")
 )
 priority_encoder_inst (
-    .input_unencoded(match_many_raw),
-    .output_valid(match_raw),
-    .output_encoded(match_addr_raw),
-    .output_unencoded(match_single_raw)
+    .input_unencoded(match_many_reg),
+    .output_valid(match),
+    .output_encoded(match_addr),
+    .output_unencoded(match_single)
 );
 
 integer i;
@@ -125,7 +115,7 @@ genvar row_ind, slice_ind;
 generate
     for (row_ind = 0; row_ind < RAM_DEPTH; row_ind = row_ind + 1) begin : row
         for (slice_ind = 0; slice_ind < SLICE_COUNT; slice_ind = slice_ind + 1) begin : slice
-            reg [2**SLICE_WIDTH-1:0] srl_mem;
+            reg [2**SLICE_WIDTH-1:0] srl_mem = {2**SLICE_WIDTH{1'b0}};
 
             // match
             always @* begin
@@ -145,9 +135,6 @@ endgenerate
 // match
 always @(posedge clk) begin
     match_many_reg <= match_many_raw;
-    match_single_reg <= match_single_raw;
-    match_addr_reg <= match_addr_raw;
-    match_reg <= match_raw;
 end
 
 // write
