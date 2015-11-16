@@ -240,6 +240,97 @@ def bench():
 
         yield delay(100)
 
+        yield clk.posedge
+        print("test 5: isolation")
+        current_test.next = 5
+
+        write_addr.next = 0
+        write_data.next = 0x0000000000000000
+        write_delete.next = 0
+        write_enable.next = 1
+        yield clk.posedge
+        write_enable.next = 0
+        yield clk.posedge
+        while write_busy:
+            yield clk.posedge
+
+        write_addr.next = 1
+        write_data.next = 0x0000000000000001
+        write_delete.next = 0
+        write_enable.next = 1
+        yield clk.posedge
+        write_enable.next = 0
+        yield clk.posedge
+        while write_busy:
+            yield clk.posedge
+
+        write_addr.next = 2
+        write_data.next = 0x0000000000000002
+        write_delete.next = 0
+        write_enable.next = 1
+        yield clk.posedge
+        write_enable.next = 0
+        yield clk.posedge
+        while write_busy:
+            yield clk.posedge
+        
+        compare_data.next = 0x0000000000000000
+        yield clk.posedge
+        yield clk.posedge
+        assert match
+        assert match_many == 1 << 0;
+        assert match_single == 1 << 0;
+        assert match_addr == 0;
+        
+        compare_data.next = 0x0000000000000001
+        yield clk.posedge
+        yield clk.posedge
+        assert match
+        assert match_many == 1 << 1;
+        assert match_single == 1 << 1;
+        assert match_addr == 1;
+        
+        compare_data.next = 0x0000000000000002
+        yield clk.posedge
+        yield clk.posedge
+        assert match
+        assert match_many == 1 << 2;
+        assert match_single == 1 << 2;
+        assert match_addr == 2;
+
+        write_addr.next = 1
+        write_data.next = 0
+        write_delete.next = 1
+        write_enable.next = 1
+        yield clk.posedge
+        write_enable.next = 0
+        yield clk.posedge
+        while write_busy:
+            yield clk.posedge
+        
+        compare_data.next = 0x0000000000000000
+        yield clk.posedge
+        yield clk.posedge
+        assert match
+        assert match_many == 1 << 0;
+        assert match_single == 1 << 0;
+        assert match_addr == 0;
+        
+        compare_data.next = 0x0000000000000001
+        yield clk.posedge
+        yield clk.posedge
+        assert not match
+        
+        compare_data.next = 0x0000000000000002
+        yield clk.posedge
+        yield clk.posedge
+        assert match
+        assert match_many == 1 << 2;
+        assert match_single == 1 << 2;
+        assert match_addr == 2;
+
+        yield delay(100)
+
         raise StopSimulation
 
     return dut, clkgen, check
