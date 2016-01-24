@@ -77,7 +77,6 @@ reg [SLICE_WIDTH-1:0] count_reg = {SLICE_WIDTH{1'b1}}, count_next;
 reg [SLICE_COUNT*SLICE_WIDTH-1:0] ram_addr = {SLICE_COUNT*SLICE_WIDTH{1'b0}};
 reg [RAM_DEPTH-1:0] set_bit;
 reg [RAM_DEPTH-1:0] clear_bit;
-reg rd_en;
 reg wr_en;
 
 reg [ADDR_WIDTH-1:0] write_addr_reg = {ADDR_WIDTH{1'b0}}, write_addr_next;
@@ -93,11 +92,9 @@ reg [RAM_DEPTH-1:0] match_many_raw;
 
 assign match_many = match_many_raw;
 
-reg [ADDR_WIDTH-1:0] erase_ram_addr;
 reg [DATA_WIDTH-1:0] erase_ram [RAM_DEPTH-1:0];
 reg [DATA_WIDTH-1:0] erase_data = {DATA_WIDTH{1'b0}};
 reg erase_ram_wr_en;
-reg erase_ram_rd_en;
 
 integer i;
 
@@ -133,42 +130,39 @@ generate
     for (slice_ind = 0; slice_ind < SLICE_COUNT; slice_ind = slice_ind + 1) begin : slice
         localparam W = slice_ind == SLICE_COUNT-1 ? DATA_WIDTH-SLICE_WIDTH*slice_ind : SLICE_WIDTH;
 
-        reg [RAM_DEPTH-1:0] mem[2**W-1:0];
-        reg [RAM_DEPTH-1:0] data_reg = {RAM_DEPTH{1'b0}};
-        reg [W-1:0] match_addr = {W{1'b0}};
-        reg [W-1:0] addr_reg = {W{1'b0}};
+        wire [RAM_DEPTH-1:0] match_data;
+        wire [RAM_DEPTH-1:0] ram_data;
 
-        // match
-        always @(posedge clk) begin
-            match_addr <= compare_data_padded[SLICE_WIDTH * slice_ind +: W];
-        end
-
-        always @* begin
-            match_raw_out[slice_ind] <= mem[match_addr];
-        end
-
-        // write
-        always @(posedge clk) begin
-            addr_reg <= ram_addr[SLICE_WIDTH * slice_ind +: W];
-            
-            if (wr_en) begin
-                mem[ram_addr[SLICE_WIDTH * slice_ind +: W]] <= (data_reg & ~clear_bit) | set_bit;
-            end
-        end
+        ram_dp #(
+            .DATA_WIDTH(RAM_DEPTH),
+            .ADDR_WIDTH(W)
+        )
+        ram_inst
+        (
+            .a_clk(clk),
+            .a_we(1'b0),
+            .a_addr(compare_data[SLICE_WIDTH * slice_ind +: W]),
+            .a_din({RAM_DEPTH{1'b0}}),
+            .a_dout(match_data),
+            .b_clk(clk),
+            .b_we(wr_en),
+            .b_addr(ram_addr[SLICE_WIDTH * slice_ind +: W]),
+            .b_din((ram_data & ~clear_bit) | set_bit),
+            .b_dout(ram_data)
+        );
 
         always @* begin
-            data_reg <= mem[addr_reg];
+            match_raw_out[slice_ind] <= match_data;
         end
     end
 endgenerate
 
 // erase
 always @(posedge clk) begin
-    if (erase_ram_rd_en) begin
-        erase_data <= erase_ram[erase_ram_addr];
-    end
+    erase_data <= erase_ram[write_addr_next];
     if (erase_ram_wr_en) begin
-        erase_ram[erase_ram_addr] <= write_data_padded_reg;
+        erase_data <= write_data_padded_reg;
+        erase_ram[write_addr_next] <= write_data_padded_reg;
     end
 end
 
@@ -177,15 +171,12 @@ always @* begin
     state_next = STATE_IDLE;
 
     count_next = count_reg;
-    ram_addr = write_data_padded_reg;
+    ram_addr = erase_data;
     set_bit = {RAM_DEPTH{1'b0}};
     clear_bit = {RAM_DEPTH{1'b0}};
-    rd_en = 1'b0;
     wr_en = 1'b0;
 
-    erase_ram_addr = write_addr_reg;
     erase_ram_wr_en = 1'b0;
-    erase_ram_rd_en = 1'b0;
 
     write_addr_next = write_addr_reg;
     write_data_padded_next = write_data_padded_reg;
@@ -207,42 +198,41 @@ always @* begin
             end
         end
         STATE_IDLE: begin
+            // idle state
+            write_addr_next = write_addr;
+            write_data_padded_next = write_data_padded;
+            write_delete_next = write_delete;
+
             if (write_enable) begin
-                write_addr_next = write_addr;
-                write_data_padded_next = write_data_padded;
-                write_delete_next = write_delete;
-                erase_ram_addr = write_addr;
-                erase_ram_rd_en = 1'b1;
+                // wait for read from erase_ram
                 state_next = STATE_DELETE_1;
             end else begin
                 state_next = STATE_IDLE;
             end
         end
         STATE_DELETE_1: begin
-            ram_addr = {{SLICE_COUNT*SLICE_WIDTH-DATA_WIDTH{1'b0}}, erase_data};
-            rd_en = 1'b1;
+            // wait for read
             state_next = STATE_DELETE_2;
         end
         STATE_DELETE_2: begin
-            ram_addr = {{SLICE_COUNT*SLICE_WIDTH-DATA_WIDTH{1'b0}}, erase_data};
+            // clear bit and write back
             clear_bit = 1'b1 << write_addr;
             wr_en = 1'b1;
             if (write_delete_reg) begin
                 state_next = STATE_IDLE;
             end else begin
+                erase_ram_wr_en = 1'b1;
                 state_next = STATE_WRITE_1;
             end
         end
         STATE_WRITE_1: begin
-            ram_addr = write_data_padded_reg;
-            rd_en = 1'b1;
+            // wait for read
             state_next = STATE_WRITE_2;
         end
         STATE_WRITE_2: begin
-            ram_addr = write_data_padded_reg;
+            // set bit and write back
             set_bit = 1'b1 << write_addr;
             wr_en = 1'b1;
-            erase_ram_wr_en = 1'b1;
             state_next = STATE_IDLE;
         end
     endcase

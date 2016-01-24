@@ -32,6 +32,7 @@ srcs = []
 
 srcs.append("../rtl/%s.v" % module)
 srcs.append("../rtl/priority_encoder.v")
+srcs.append("../rtl/ram_dp.v")
 srcs.append("test_%s.v" % module)
 
 src = ' '.join(srcs)
