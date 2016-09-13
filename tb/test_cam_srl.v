@@ -56,19 +56,23 @@ wire match;
 
 initial begin
     // myhdl integration
-    $from_myhdl(clk,
-                rst,
-                current_test,
-                write_addr,
-                write_data,
-                write_delete,
-                write_enable,
-                compare_data);
-    $to_myhdl(write_busy,
-              match_many,
-              match_single,
-              match_addr,
-              match);
+    $from_myhdl(
+        clk,
+        rst,
+        current_test,
+        write_addr,
+        write_data,
+        write_delete,
+        write_enable,
+        compare_data
+    );
+    $to_myhdl(
+        write_busy,
+        match_many,
+        match_single,
+        match_addr,
+        match
+    );
 
     // dump file
     $dumpfile("test_cam_srl.lxt");

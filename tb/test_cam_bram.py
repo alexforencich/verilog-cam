@@ -27,48 +27,18 @@ from myhdl import *
 import os
 
 module = 'cam_bram'
+testbench = 'test_%s' % module
 
 srcs = []
 
 srcs.append("../rtl/%s.v" % module)
 srcs.append("../rtl/priority_encoder.v")
 srcs.append("../rtl/ram_dp.v")
-srcs.append("test_%s.v" % module)
+srcs.append("%s.v" % testbench)
 
 src = ' '.join(srcs)
 
-build_cmd = "iverilog -o test_%s.vvp %s" % (module, src)
-
-def dut_cam_bram(clk,
-                 rst,
-                 current_test,
-                 write_addr,
-                 write_data,
-                 write_delete,
-                 write_enable,
-                 write_busy,
-                 compare_data,
-                 match_many,
-                 match_single,
-                 match_addr,
-                 match):
-
-    if os.system(build_cmd):
-        raise Exception("Error running build command")
-    return Cosimulation("vvp -m myhdl test_%s.vvp -lxt2" % module,
-                clk=clk,
-                rst=rst,
-                current_test=current_test,
-                write_addr=write_addr,
-                write_data=write_data,
-                write_delete=write_delete,
-                write_enable=write_enable,
-                write_busy=write_busy,
-                compare_data=compare_data,
-                match_many=match_many,
-                match_single=match_single,
-                match_addr=match_addr,
-                match=match)
+build_cmd = "iverilog -o %s.vvp %s" % (testbench, src)
 
 def bench():
 
@@ -96,19 +66,25 @@ def bench():
     match = Signal(bool(0))
 
     # DUT
-    dut = dut_cam_bram(clk,
-                       rst,
-                       current_test,
-                       write_addr,
-                       write_data,
-                       write_delete,
-                       write_enable,
-                       write_busy,
-                       compare_data,
-                       match_many,
-                       match_single,
-                       match_addr,
-                       match)
+    if os.system(build_cmd):
+        raise Exception("Error running build command")
+
+    dut = Cosimulation(
+        "vvp -m myhdl %s.vvp -lxt2" % testbench,
+        clk=clk,
+        rst=rst,
+        current_test=current_test,
+        write_addr=write_addr,
+        write_data=write_data,
+        write_delete=write_delete,
+        write_enable=write_enable,
+        write_busy=write_busy,
+        compare_data=compare_data,
+        match_many=match_many,
+        match_single=match_single,
+        match_addr=match_addr,
+        match=match
+    )
 
     @always(delay(4))
     def clkgen():
