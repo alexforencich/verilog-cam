@@ -177,7 +177,7 @@ always @* begin
         end
         STATE_WRITE: begin
             // write entry
-            shift_en = 1'b1 << write_addr;
+            shift_en = 1'b1 << write_addr_reg;
 
             for (i = 0; i < SLICE_COUNT; i = i + 1) begin
                 shift_data[i] = count_reg == write_data_padded_reg[SLICE_WIDTH * i +: SLICE_WIDTH];
@@ -192,7 +192,7 @@ always @* begin
         end
         STATE_DELETE: begin
             // delete entry
-            shift_en = 1'b1 << write_addr;
+            shift_en = 1'b1 << write_addr_reg;
             shift_data = {SLICE_COUNT{1'b0}};
 
             if (count_reg == 0) begin

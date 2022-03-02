@@ -216,7 +216,7 @@ always @* begin
         end
         STATE_DELETE_2: begin
             // clear bit and write back
-            clear_bit = 1'b1 << write_addr;
+            clear_bit = 1'b1 << write_addr_reg;
             wr_en = 1'b1;
             if (write_delete_reg) begin
                 state_next = STATE_IDLE;
@@ -231,7 +231,7 @@ always @* begin
         end
         STATE_WRITE_2: begin
             // set bit and write back
-            set_bit = 1'b1 << write_addr;
+            set_bit = 1'b1 << write_addr_reg;
             wr_en = 1'b1;
             state_next = STATE_IDLE;
         end
